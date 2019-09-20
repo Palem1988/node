@@ -110,6 +110,8 @@ int InstructionScheduler::GetTargetInstructionFlags(
     case kAVXF32x4Abs:
     case kSSEF32x4Neg:
     case kAVXF32x4Neg:
+    case kSSEF32x4Sqrt:
+    case kAVXF32x4Sqrt:
     case kIA32F32x4RecipApprox:
     case kIA32F32x4RecipSqrtApprox:
     case kSSEF32x4Add:
@@ -120,6 +122,8 @@ int InstructionScheduler::GetTargetInstructionFlags(
     case kAVXF32x4Sub:
     case kSSEF32x4Mul:
     case kAVXF32x4Mul:
+    case kSSEF32x4Div:
+    case kAVXF32x4Div:
     case kSSEF32x4Min:
     case kAVXF32x4Min:
     case kSSEF32x4Max:
@@ -356,7 +360,6 @@ int InstructionScheduler::GetTargetInstructionFlags(
       // Moves are used for memory load/store operations.
       return instr->HasOutput() ? kIsLoadOperation : kHasSideEffect;
 
-    case kIA32StackCheck:
     case kIA32Peek:
       return kIsLoadOperation;
 

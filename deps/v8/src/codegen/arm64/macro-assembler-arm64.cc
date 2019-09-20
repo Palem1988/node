@@ -13,6 +13,7 @@
 #include "src/codegen/macro-assembler-inl.h"
 #include "src/codegen/register-configuration.h"
 #include "src/debug/debug.h"
+#include "src/deoptimizer/deoptimizer.h"
 #include "src/execution/frame-constants.h"
 #include "src/execution/frames-inl.h"
 #include "src/heap/heap-inl.h"  // For MemoryChunk.
@@ -649,7 +650,14 @@ Operand TurboAssembler::MoveImmediateForShiftedOp(const Register& dst,
     // The move was successful; nothing to do here.
   } else {
     // Pre-shift the immediate to the least-significant bits of the register.
-    int shift_low = CountTrailingZeros(imm, reg_size);
+    int shift_low;
+    if (reg_size == 64) {
+      shift_low = base::bits::CountTrailingZeros(imm);
+    } else {
+      DCHECK_EQ(reg_size, 32);
+      shift_low = base::bits::CountTrailingZeros(static_cast<uint32_t>(imm));
+    }
+
     if (mode == kLimitShiftForSP) {
       // When applied to the stack pointer, the subsequent arithmetic operation
       // can use the extend form to shift left by a maximum of four bits. Right
@@ -1138,43 +1146,28 @@ void MacroAssembler::PushMultipleTimes(CPURegister src, Register count) {
   UseScratchRegisterScope temps(this);
   Register temp = temps.AcquireSameSizeAs(count);
 
-  if (FLAG_optimize_for_size) {
-    Label loop, done;
+  Label loop, leftover2, leftover1, done;
 
-    Subs(temp, count, 1);
-    B(mi, &done);
+  Subs(temp, count, 4);
+  B(mi, &leftover2);
 
-    // Push all registers individually, to save code size.
-    Bind(&loop);
-    Subs(temp, temp, 1);
-    PushHelper(1, src.SizeInBytes(), src, NoReg, NoReg, NoReg);
-    B(pl, &loop);
+  // Push groups of four first.
+  Bind(&loop);
+  Subs(temp, temp, 4);
+  PushHelper(4, src.SizeInBytes(), src, src, src, src);
+  B(pl, &loop);
 
-    Bind(&done);
-  } else {
-    Label loop, leftover2, leftover1, done;
+  // Push groups of two.
+  Bind(&leftover2);
+  Tbz(count, 1, &leftover1);
+  PushHelper(2, src.SizeInBytes(), src, src, NoReg, NoReg);
 
-    Subs(temp, count, 4);
-    B(mi, &leftover2);
+  // Push the last one (if required).
+  Bind(&leftover1);
+  Tbz(count, 0, &done);
+  PushHelper(1, src.SizeInBytes(), src, NoReg, NoReg, NoReg);
 
-    // Push groups of four first.
-    Bind(&loop);
-    Subs(temp, temp, 4);
-    PushHelper(4, src.SizeInBytes(), src, src, src, src);
-    B(pl, &loop);
-
-    // Push groups of two.
-    Bind(&leftover2);
-    Tbz(count, 1, &leftover1);
-    PushHelper(2, src.SizeInBytes(), src, src, NoReg, NoReg);
-
-    // Push the last one (if required).
-    Bind(&leftover1);
-    Tbz(count, 0, &done);
-    PushHelper(1, src.SizeInBytes(), src, NoReg, NoReg, NoReg);
-
-    Bind(&done);
-  }
+  Bind(&done);
 }
 
 void TurboAssembler::PushHelper(int count, int size, const CPURegister& src0,
@@ -1301,6 +1294,14 @@ void MacroAssembler::PushCalleeSavedRegisters() {
   stp(d8, d9, tos);
 
   stp(x29, x30, tos);
+#if defined(V8_OS_WIN)
+  // kFramePointerOffsetInPushCalleeSavedRegisters is the offset from tos at
+  // the end of this function to the saved caller's fp/x29 pointer. It includes
+  // registers from x19 to x28, which is 10 pointers defined by below stp
+  // instructions.
+  STATIC_ASSERT(kFramePointerOffsetInPushCalleeSavedRegisters ==
+                10 * kSystemPointerSize);
+#endif  // defined(V8_OS_WIN)
   stp(x27, x28, tos);
   stp(x25, x26, tos);
   stp(x23, x24, tos);
@@ -1460,15 +1461,6 @@ void TurboAssembler::LoadRoot(Register destination, RootIndex index) {
   // without a load. Refer to the ARM back end for details.
   Ldr(destination,
       MemOperand(kRootRegister, RootRegisterOffsetForRootIndex(index)));
-}
-
-void MacroAssembler::LoadObject(Register result, Handle<Object> object) {
-  AllowDeferredHandleDereference heap_object_check;
-  if (object->IsHeapObject()) {
-    Mov(result, Handle<HeapObject>::cast(object));
-  } else {
-    Mov(result, Operand(Smi::cast(*object)));
-  }
 }
 
 void TurboAssembler::Move(Register dst, Smi src) { Mov(dst, src); }
@@ -1873,6 +1865,13 @@ void TurboAssembler::Jump(Handle<Code> code, RelocInfo::Mode rmode,
   }
 }
 
+void TurboAssembler::Jump(const ExternalReference& reference) {
+  UseScratchRegisterScope temps(this);
+  Register scratch = temps.AcquireX();
+  Mov(scratch, reference);
+  Jump(scratch);
+}
+
 void TurboAssembler::Call(Register target) {
   BlockPoolsScope scope(this);
   Blr(target);
@@ -1900,14 +1899,7 @@ void TurboAssembler::Call(Handle<Code> code, RelocInfo::Mode rmode) {
     if (isolate()->builtins()->IsBuiltinHandle(code, &builtin_index) &&
         Builtins::IsIsolateIndependent(builtin_index)) {
       // Inline the trampoline.
-      RecordCommentForOffHeapTrampoline(builtin_index);
-      CHECK_NE(builtin_index, Builtins::kNoBuiltinId);
-      UseScratchRegisterScope temps(this);
-      Register scratch = temps.AcquireX();
-      EmbeddedData d = EmbeddedData::FromBlob();
-      Address entry = d.InstructionStartOfBuiltin(builtin_index);
-      Ldr(scratch, Operand(entry, RelocInfo::OFF_HEAP_TARGET));
-      Call(scratch);
+      CallBuiltin(builtin_index);
       return;
     }
   }
@@ -1949,6 +1941,19 @@ void TurboAssembler::LoadEntryFromBuiltinIndex(Register builtin_index) {
 void TurboAssembler::CallBuiltinByIndex(Register builtin_index) {
   LoadEntryFromBuiltinIndex(builtin_index);
   Call(builtin_index);
+}
+
+void TurboAssembler::CallBuiltin(int builtin_index) {
+  DCHECK(Builtins::IsBuiltinId(builtin_index));
+  DCHECK(FLAG_embedded_builtins);
+  RecordCommentForOffHeapTrampoline(builtin_index);
+  CHECK_NE(builtin_index, Builtins::kNoBuiltinId);
+  UseScratchRegisterScope temps(this);
+  Register scratch = temps.AcquireX();
+  EmbeddedData d = EmbeddedData::FromBlob();
+  Address entry = d.InstructionStartOfBuiltin(builtin_index);
+  Ldr(scratch, Operand(entry, RelocInfo::OFF_HEAP_TARGET));
+  Call(scratch);
 }
 
 void TurboAssembler::LoadCodeObjectEntry(Register destination,
@@ -2051,22 +2056,17 @@ bool TurboAssembler::IsNearCallOffset(int64_t offset) {
 
 void TurboAssembler::CallForDeoptimization(Address target, int deopt_id) {
   BlockPoolsScope scope(this);
-  NoRootArrayScope no_root_array(this);
-
 #ifdef DEBUG
   Label start;
-  Bind(&start);
+  bind(&start);
 #endif
-  // Make sure that the deopt id can be encoded in 16 bits, so can be encoded
-  // in a single movz instruction with a zero shift.
-  DCHECK(is_uint16(deopt_id));
-  movz(x26, deopt_id);
   int64_t offset = static_cast<int64_t>(target) -
                    static_cast<int64_t>(options().code_range_start);
   DCHECK_EQ(offset % kInstrSize, 0);
   offset = offset / static_cast<int>(kInstrSize);
   DCHECK(IsNearCallOffset(offset));
   near_call(static_cast<int>(offset), RelocInfo::RUNTIME_ENTRY);
+  DCHECK_EQ(SizeOfCodeGeneratedSince(&start), Deoptimizer::kDeoptExitSize);
 }
 
 void TurboAssembler::PrepareForTailCall(const ParameterCount& callee_args_count,
@@ -2374,6 +2374,8 @@ void TurboAssembler::TruncateDoubleToI(Isolate* isolate, Zone* zone,
   // DoubleToI preserves any registers it needs to clobber.
   if (stub_mode == StubCallMode::kCallWasmRuntimeStub) {
     Call(wasm::WasmCode::kDoubleToI, RelocInfo::WASM_STUB_CALL);
+  } else if (options().inline_offheap_trampolines) {
+    CallBuiltin(Builtins::kDoubleToI);
   } else {
     Call(BUILTIN_CODE(isolate, DoubleToI), RelocInfo::CODE_TARGET);
   }
@@ -3000,6 +3002,12 @@ void MacroAssembler::RecordWrite(Register object, Operand offset,
     LoadTaggedPointerField(temp, MemOperand(temp));
     Cmp(temp, value);
     Check(eq, AbortReason::kWrongAddressOrValuePassedToRecordWrite);
+  }
+
+  if ((remembered_set_action == OMIT_REMEMBERED_SET &&
+       !FLAG_incremental_marking) ||
+      FLAG_disable_write_barriers) {
+    return;
   }
 
   // First, check if a write barrier is even needed. The tests below

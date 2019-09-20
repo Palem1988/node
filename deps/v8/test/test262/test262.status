@@ -60,31 +60,12 @@
   'language/expressions/assignment/S11.13.1_A6*': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=4709
-  'built-ins/Promise/all/resolve-element-function-name': [FAIL],
-  'built-ins/Promise/allSettled/reject-element-function-name': [FAIL],
-  'built-ins/Promise/allSettled/resolve-element-function-name': [FAIL],
-  'built-ins/Promise/executor-function-name': [FAIL],
-  'built-ins/Promise/reject-function-name': [FAIL],
-  'built-ins/Promise/resolve-function-name': [FAIL],
-  'built-ins/Proxy/revocable/revocation-function-name': [FAIL],
   'language/expressions/assignment/fn-name-lhs-cover': [FAIL],
-  'language/expressions/assignment/fn-name-lhs-member': [FAIL],
-  'language/expressions/function/name': [FAIL],
-  'language/expressions/generators/name': [FAIL],
-  'intl402/NumberFormat/prototype/format/format-function-name': [FAIL],
-  'intl402/DateTimeFormat/prototype/format/format-function-name': [FAIL],
-  'intl402/Collator/prototype/compare/compare-function-name': [FAIL],
 
   # Intl tests which require flags.
   # https://bugs.chromium.org/p/v8/issues/detail?id=9154
   'intl402/NumberFormat/numbering-system-options': ['--harmony-intl-add-calendar-numbering-system'],
   'intl402/DateTimeFormat/numbering-system-calendar-options': ['--harmony-intl-add-calendar-numbering-system'],
-
-  # https://bugs.chromium.org/p/v8/issues/detail?id=9319
-  'intl402/NumberFormat/prototype/resolvedOptions/order': [FAIL],
-
-  # crbug.com/v8/9483
-  'intl402/NumberFormat/currencyDisplay-unit': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=9084
   'intl402/supportedLocalesOf-consistent-with-resolvedOptions': [FAIL],
@@ -450,10 +431,6 @@
   'built-ins/TypedArrayConstructors/internals/Set/key-is-out-of-bounds': [FAIL],
   'built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-out-of-bounds': [FAIL],
 
-  # https://bugs.chromium.org/p/v8/issues/detail?id=8100
-  'built-ins/Atomics/notify/bigint/*': [SKIP],
-  'built-ins/Atomics/wait/bigint/*': [SKIP],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=6049
   'built-ins/Object/internals/DefineOwnProperty/consistent-value-function-caller': [FAIL_SLOPPY],
   'built-ins/Object/internals/DefineOwnProperty/consistent-value-function-arguments': [FAIL_SLOPPY],
@@ -480,25 +457,8 @@
   'language/expressions/async-generator/generator-created-after-decl-inst': [FAIL],
   'language/statements/async-generator/generator-created-after-decl-inst': [FAIL],
 
-  # await tests that require flags
-  'language/expressions/await/async-generator-interleaved': ['--harmony-await-optimization'],
-  'language/expressions/await/await-monkey-patched-promise': ['--harmony-await-optimization'],
-  'language/expressions/await/for-await-of-interleaved': ['--harmony-await-optimization'],
-  'language/expressions/await/async-await-interleaved': ['--harmony-await-optimization'],
-
-  # https://github.com/tc39/test262/issues/2033
-  'language/expressions/class/elements/private-derived-cls-direct-eval-err-contains-supercall': [SKIP],
-  'language/expressions/class/elements/private-derived-cls-direct-eval-err-contains-supercall-1': [SKIP],
-  'language/expressions/class/elements/private-derived-cls-direct-eval-err-contains-supercall-2': [SKIP],
-  'language/expressions/class/elements/private-derived-cls-indirect-eval-err-contains-supercall': [SKIP],
-  'language/expressions/class/elements/private-derived-cls-indirect-eval-err-contains-supercall-1': [SKIP],
-  'language/expressions/class/elements/private-derived-cls-indirect-eval-err-contains-supercall-2': [SKIP],
-  'language/statements/class/elements/private-derived-cls-direct-eval-err-contains-supercall': [SKIP],
-  'language/statements/class/elements/private-derived-cls-direct-eval-err-contains-supercall-1': [SKIP],
-  'language/statements/class/elements/private-derived-cls-direct-eval-err-contains-supercall-2': [SKIP],
-  'language/statements/class/elements/private-derived-cls-indirect-eval-err-contains-supercall': [SKIP],
-  'language/statements/class/elements/private-derived-cls-indirect-eval-err-contains-supercall-1': [SKIP],
-  'language/statements/class/elements/private-derived-cls-indirect-eval-err-contains-supercall-2': [SKIP],
+  # https://bugs.chromium.org/p/v8/issues/detail?id=9611
+  'language/statements/class/elements/private-field-is-visible-in-computed-properties': [SKIP],
 
   # https://github.com/tc39/test262/issues/2034
   'language/expressions/postfix-decrement/arguments': [SKIP],
@@ -524,23 +484,14 @@
   # https://bugs.chromium.org/p/v8/issues/detail?id=9049
   'language/comments/hashbang/use-strict': [SKIP],
 
-  # https://bugs.chromium.org/p/v8/issues/detail?id=9229
-  'language/expressions/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage': [FAIL],
-  'language/expressions/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage-chained-usage': [FAIL],
-  'language/expressions/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage-function-expression': [FAIL],
-  'language/expressions/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage-recursive': [FAIL],
-  'language/statements/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage': [FAIL],
-  'language/statements/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage-chained-usage': [FAIL],
-  'language/statements/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage-function-expression': [FAIL],
-  'language/statements/class/elements/syntax/early-errors/grammar-private-environment-on-class-heritage-recursive': [FAIL],
-
   # https://bugs.chromium.org/p/v8/issues/detail?id=8179
+  # Temporarily removed pending https://github.com/tc39/test262/issues/2339
   #
   # These tests require exception handling support which is currently
   #  blocked on landing https://chromium-review.googlesource.com/c/v8/v8/+/1655655
-  'built-ins/FinalizationGroup/FinalizationGroupCleanupIteratorPrototype/next-job-not-active-throws': [FAIL],
-  'built-ins/FinalizationGroup/prototype/cleanupSome/poisoned-callback-throws': [FAIL],
-  'built-ins/FinalizationGroup/prototype/cleanupSome/poisoned-cleanup-callback-throws': [FAIL],
+  # 'built-ins/FinalizationGroup/FinalizationGroupCleanupIteratorPrototype/next-job-not-active-throws': [FAIL],
+  # 'built-ins/FinalizationGroup/prototype/cleanupSome/poisoned-callback-throws': [FAIL],
+  # 'built-ins/FinalizationGroup/prototype/cleanupSome/poisoned-cleanup-callback-throws': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=8179
   #
@@ -550,25 +501,58 @@
   'built-ins/FinalizationGroup/prototype/register/return-undefined-register-itself': [FAIL],
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=8179
+  # Temporarily removed pending https://github.com/tc39/test262/issues/2339
   #
   # This test has target === holdings which throws, changing holdings to
   #  { y } makes the test pass.
-  'built-ins/FinalizationGroup/prototype/cleanupSome/cleanup-prevented-with-reference': [FAIL],
+  # 'built-ins/FinalizationGroup/prototype/cleanupSome/cleanup-prevented-with-reference': [FAIL],
 
   # https://github.com/tc39/test262/issues/2256
-  'built-ins/FinalizationGroup/prototype/cleanupSome/cleanup-prevented-with-unregister': [FAIL],
+  # Temporarily removed pending https://github.com/tc39/test262/issues/2339
+  # 'built-ins/FinalizationGroup/prototype/cleanupSome/cleanup-prevented-with-unregister': [FAIL],
 
   # https://github.com/tc39/test262/issues/2239
-  'built-ins/WeakRef/prototype/deref/gc-cleanup-not-prevented-with-wr-deref': [FAIL],
-  'built-ins/FinalizationGroup/prototype/cleanupSome/gc-cleanup-not-prevented-with-wr-deref': [FAIL],
+  # Temporarily removed pending https://github.com/tc39/test262/issues/2339
+  # 'built-ins/WeakRef/prototype/deref/gc-cleanup-not-prevented-with-wr-deref': [FAIL],
+  # 'built-ins/FinalizationGroup/prototype/cleanupSome/gc-cleanup-not-prevented-with-wr-deref': [FAIL],
 
   # https://github.com/tc39/test262/issues/2255
-  'built-ins/FinalizationGroup/prototype/cleanupSome/iterator-holdings-multiple-values': [FAIL],
+  # Temporarily removed pending https://github.com/tc39/test262/issues/2339
+  # 'built-ins/FinalizationGroup/prototype/cleanupSome/iterator-holdings-multiple-values': [FAIL],
+
+  # https://github.com/tc39/test262/issues/2260
+  # Temporarily removed pending https://github.com/tc39/test262/issues/2339
+  # 'built-ins/FinalizationGroup/prototype/cleanupSome/return-undefined-with-gc': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=9612
+  'intl402/DateTimeFormat/prototype/formatRange/fractionalSecondDigits': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=9613
+  'intl402/Intl/getCanonicalLocales/canonicalized-tags': [FAIL],
+  'intl402/Intl/getCanonicalLocales/grandfathered': [FAIL],
+  'intl402/Intl/getCanonicalLocales/non-iana-canon': [FAIL],
+  'intl402/Intl/getCanonicalLocales/preferred-grandfathered': [FAIL],
+  'intl402/Intl/getCanonicalLocales/preferred-variant': [FAIL],
+  'intl402/Locale/constructor-non-iana-canon': [FAIL],
+  'intl402/Locale/likely-subtags-grandfathered': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=9742
+  'intl402/Locale/getters': [FAIL],
+
+  # https://github.com/tc39/test262/pull/2349
+  'intl402/Locale/constructor-options-region-valid': [FAIL],
+
+  # https://bugs.chromium.org/p/v8/issues/detail?id=9741
+  'intl402/Locale/constructor-tag': [FAIL],
 
   ######################## NEEDS INVESTIGATION ###########################
 
   # https://bugs.chromium.org/p/v8/issues/detail?id=7833
+  #
+  # Test262 needs to expose CanBlock
+  'built-ins/Atomics/wait/bigint/cannot-suspend-throws': [SKIP],
   'built-ins/Atomics/wait/cannot-suspend-throws': [SKIP],
+  # Flaky
   'built-ins/Atomics/wait/undefined-index-defaults-to-zero': [SKIP],
 
   ##################### DELIBERATE INCOMPATIBILITIES #####################
@@ -688,10 +672,6 @@
 ['asan == True', {
   # BUG(v8:4653): Test262 tests which rely on quit() are not compatible with
   # asan's --omit-quit flag.
-  'built-ins/Promise/allSettled/reject-deferred': [FAIL],
-  'built-ins/Promise/allSettled/reject-ignored-deferred': [FAIL],
-  'built-ins/Promise/allSettled/reject-ignored-immed': [FAIL],
-  'built-ins/Promise/allSettled/reject-immed': [FAIL],
   'built-ins/Promise/prototype/then/deferred-is-resolved-value': [SKIP],
   'language/expressions/dynamic-import/always-create-new-promise': [SKIP],
   'language/expressions/dynamic-import/assign-expr-get-value-abrupt-throws': [SKIP],
@@ -837,8 +817,6 @@
   'language/expressions/dynamic-import/catch/top-level-import-catch-instn-iee-err-circular': [SKIP],
   'language/expressions/dynamic-import/catch/top-level-import-catch-specifier-tostring-abrupt-rejects': [SKIP],
   'language/expressions/dynamic-import/custom-primitive': [SKIP],
-  'language/expressions/dynamic-import/double-error-resolution': [SKIP],
-  'language/expressions/dynamic-import/double-error-resolution-promise': [SKIP],
   'language/expressions/dynamic-import/escape-sequence-import': [SKIP],
   'language/expressions/dynamic-import/eval-export-dflt-cls-anon': [SKIP],
   'language/expressions/dynamic-import/eval-export-dflt-cls-named': [SKIP],

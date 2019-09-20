@@ -1676,7 +1676,7 @@ class ThreadImpl {
         converter<ctype, mtype>{}(ReadLittleEndianValue<mtype>(addr)));
 
     Push(result);
-    *len = 1 + imm.length;
+    *len += imm.length;
 
     if (FLAG_trace_wasm_memory) {
       MemoryTracingInfo info(imm.offset + index, false, rep);
@@ -1702,7 +1702,7 @@ class ThreadImpl {
       return false;
     }
     WriteLittleEndianValue<mtype>(addr, converter<mtype, ctype>{}(val));
-    *len = 1 + imm.length;
+    *len += imm.length;
 
     if (FLAG_trace_wasm_memory) {
       MemoryTracingInfo info(imm.offset + index, true, rep);
@@ -2241,14 +2241,27 @@ class ThreadImpl {
     Push(WasmValue(Simd128(res)));               \
     return true;                                 \
   }
+      BINOP_CASE(F64x2Add, f64x2, float2, 2, a + b)
+      BINOP_CASE(F64x2Sub, f64x2, float2, 2, a - b)
+      BINOP_CASE(F64x2Mul, f64x2, float2, 2, a * b)
+      BINOP_CASE(F64x2Div, f64x2, float2, 2, base::Divide(a, b))
+      BINOP_CASE(F64x2Min, f64x2, float2, 2, JSMin(a, b))
+      BINOP_CASE(F64x2Max, f64x2, float2, 2, JSMax(a, b))
       BINOP_CASE(F32x4Add, f32x4, float4, 4, a + b)
       BINOP_CASE(F32x4Sub, f32x4, float4, 4, a - b)
       BINOP_CASE(F32x4Mul, f32x4, float4, 4, a * b)
-      BINOP_CASE(F32x4Min, f32x4, float4, 4, a < b ? a : b)
-      BINOP_CASE(F32x4Max, f32x4, float4, 4, a > b ? a : b)
+      BINOP_CASE(F32x4Div, f32x4, float4, 4, a / b)
+      BINOP_CASE(F32x4Min, f32x4, float4, 4, JSMin(a, b))
+      BINOP_CASE(F32x4Max, f32x4, float4, 4, JSMax(a, b))
       BINOP_CASE(I64x2Add, i64x2, int2, 2, base::AddWithWraparound(a, b))
       BINOP_CASE(I64x2Sub, i64x2, int2, 2, base::SubWithWraparound(a, b))
       BINOP_CASE(I64x2Mul, i64x2, int2, 2, base::MulWithWraparound(a, b))
+      BINOP_CASE(I64x2MinS, i64x2, int2, 2, a < b ? a : b)
+      BINOP_CASE(I64x2MinU, i64x2, int2, 2,
+                 static_cast<uint64_t>(a) < static_cast<uint64_t>(b) ? a : b)
+      BINOP_CASE(I64x2MaxS, i64x2, int2, 2, a > b ? a : b)
+      BINOP_CASE(I64x2MaxU, i64x2, int2, 2,
+                 static_cast<uint64_t>(a) > static_cast<uint64_t>(b) ? a : b)
       BINOP_CASE(I32x4Add, i32x4, int4, 4, base::AddWithWraparound(a, b))
       BINOP_CASE(I32x4Sub, i32x4, int4, 4, base::SubWithWraparound(a, b))
       BINOP_CASE(I32x4Mul, i32x4, int4, 4, base::MulWithWraparound(a, b))
@@ -2304,8 +2317,10 @@ class ThreadImpl {
   }
       UNOP_CASE(F64x2Abs, f64x2, float2, 2, std::abs(a))
       UNOP_CASE(F64x2Neg, f64x2, float2, 2, -a)
+      UNOP_CASE(F64x2Sqrt, f64x2, float2, 2, std::sqrt(a))
       UNOP_CASE(F32x4Abs, f32x4, float4, 4, std::abs(a))
       UNOP_CASE(F32x4Neg, f32x4, float4, 4, -a)
+      UNOP_CASE(F32x4Sqrt, f32x4, float4, 4, std::sqrt(a))
       UNOP_CASE(F32x4RecipApprox, f32x4, float4, 4, base::Recip(a))
       UNOP_CASE(F32x4RecipSqrtApprox, f32x4, float4, 4, base::RecipSqrt(a))
       UNOP_CASE(I64x2Neg, i64x2, int2, 2, base::NegateWithWraparound(a))
@@ -2422,40 +2437,39 @@ class ThreadImpl {
       case kExprS128StoreMem:
         return ExecuteStore<Simd128, Simd128>(decoder, code, pc, len,
                                               MachineRepresentation::kSimd128);
-#define SHIFT_CASE(op, name, stype, count, expr)                         \
-  case kExpr##op: {                                                      \
-    SimdShiftImmediate<Decoder::kNoValidate> imm(decoder, code->at(pc)); \
-    *len += 1;                                                           \
-    WasmValue v = Pop();                                                 \
-    stype s = v.to_s128().to_##name();                                   \
-    stype res;                                                           \
-    for (size_t i = 0; i < count; ++i) {                                 \
-      auto a = s.val[i];                                                 \
-      res.val[i] = expr;                                                 \
-    }                                                                    \
-    Push(WasmValue(Simd128(res)));                                       \
-    return true;                                                         \
+#define SHIFT_CASE(op, name, stype, count, expr) \
+  case kExpr##op: {                              \
+    uint32_t shift = Pop().to<uint32_t>();       \
+    WasmValue v = Pop();                         \
+    stype s = v.to_s128().to_##name();           \
+    stype res;                                   \
+    for (size_t i = 0; i < count; ++i) {         \
+      auto a = s.val[i];                         \
+      res.val[i] = expr;                         \
+    }                                            \
+    Push(WasmValue(Simd128(res)));               \
+    return true;                                 \
   }
         SHIFT_CASE(I64x2Shl, i64x2, int2, 2,
-                   static_cast<uint64_t>(a) << imm.shift)
-        SHIFT_CASE(I64x2ShrS, i64x2, int2, 2, a >> imm.shift)
+                   static_cast<uint64_t>(a) << (shift % 64))
+        SHIFT_CASE(I64x2ShrS, i64x2, int2, 2, a >> (shift % 64))
         SHIFT_CASE(I64x2ShrU, i64x2, int2, 2,
-                   static_cast<uint64_t>(a) >> imm.shift)
+                   static_cast<uint64_t>(a) >> (shift % 64))
         SHIFT_CASE(I32x4Shl, i32x4, int4, 4,
-                   static_cast<uint32_t>(a) << imm.shift)
-        SHIFT_CASE(I32x4ShrS, i32x4, int4, 4, a >> imm.shift)
+                   static_cast<uint32_t>(a) << (shift % 32))
+        SHIFT_CASE(I32x4ShrS, i32x4, int4, 4, a >> (shift % 32))
         SHIFT_CASE(I32x4ShrU, i32x4, int4, 4,
-                   static_cast<uint32_t>(a) >> imm.shift)
+                   static_cast<uint32_t>(a) >> (shift % 32))
         SHIFT_CASE(I16x8Shl, i16x8, int8, 8,
-                   static_cast<uint16_t>(a) << imm.shift)
-        SHIFT_CASE(I16x8ShrS, i16x8, int8, 8, a >> imm.shift)
+                   static_cast<uint16_t>(a) << (shift % 16))
+        SHIFT_CASE(I16x8ShrS, i16x8, int8, 8, a >> (shift % 16))
         SHIFT_CASE(I16x8ShrU, i16x8, int8, 8,
-                   static_cast<uint16_t>(a) >> imm.shift)
+                   static_cast<uint16_t>(a) >> (shift % 16))
         SHIFT_CASE(I8x16Shl, i8x16, int16, 16,
-                   static_cast<uint8_t>(a) << imm.shift)
-        SHIFT_CASE(I8x16ShrS, i8x16, int16, 16, a >> imm.shift)
+                   static_cast<uint8_t>(a) << (shift % 8))
+        SHIFT_CASE(I8x16ShrS, i8x16, int16, 16, a >> (shift % 8))
         SHIFT_CASE(I8x16ShrU, i8x16, int16, 16,
-                   static_cast<uint8_t>(a) >> imm.shift)
+                   static_cast<uint8_t>(a) >> (shift % 8))
 #undef SHIFT_CASE
 #define CONVERT_CASE(op, src_type, name, dst_type, count, start_index, ctype, \
                      expr)                                                    \
@@ -2599,6 +2613,23 @@ class ThreadImpl {
         REDUCTION_CASE(S1x8AllTrue, i16x8, int8, 8, &)
         REDUCTION_CASE(S1x16AllTrue, i8x16, int16, 16, &)
 #undef REDUCTION_CASE
+#define QFM_CASE(op, name, stype, count, operation)         \
+  case kExpr##op: {                                         \
+    stype c = Pop().to_s128().to_##name();                  \
+    stype b = Pop().to_s128().to_##name();                  \
+    stype a = Pop().to_s128().to_##name();                  \
+    stype res;                                              \
+    for (size_t i = 0; i < count; i++) {                    \
+      res.val[i] = a.val[i] operation(b.val[i] * c.val[i]); \
+    }                                                       \
+    Push(WasmValue(Simd128(res)));                          \
+    return true;                                            \
+  }
+        QFM_CASE(F32x4Qfma, f32x4, float4, 4, +)
+        QFM_CASE(F32x4Qfms, f32x4, float4, 4, -)
+        QFM_CASE(F64x2Qfma, f64x2, float2, 2, +)
+        QFM_CASE(F64x2Qfms, f64x2, float2, 2, -)
+#undef QFM_CASE
       default:
         return false;
     }
@@ -3042,8 +3073,8 @@ class ThreadImpl {
                                                            code->at(pc));
           HandleScope handle_scope(isolate_);  // Avoid leaking handles.
 
-          Handle<WasmExportedFunction> function =
-              WasmInstanceObject::GetOrCreateWasmExportedFunction(
+          Handle<WasmExternalFunction> function =
+              WasmInstanceObject::GetOrCreateWasmExternalFunction(
                   isolate_, instance_object_, imm.index);
           Push(WasmValue(function));
           len = 1 + imm.length;
@@ -3679,7 +3710,7 @@ class ThreadImpl {
     WasmFeatures enabled_features = WasmFeaturesFromIsolate(isolate);
 
     if (code->kind() == WasmCode::kWasmToJsWrapper &&
-        !IsJSCompatibleSignature(sig, enabled_features.bigint)) {
+        !IsJSCompatibleSignature(sig, enabled_features)) {
       Drop(num_args);  // Pop arguments before throwing.
       isolate->Throw(*isolate->factory()->NewTypeError(
           MessageTemplate::kWasmTrapTypeError));
@@ -3765,7 +3796,8 @@ class ThreadImpl {
   static WasmCode* GetTargetCode(Isolate* isolate, Address target) {
     WasmCodeManager* code_manager = isolate->wasm_engine()->code_manager();
     NativeModule* native_module = code_manager->LookupNativeModule(target);
-    if (native_module->is_jump_table_slot(target)) {
+    WasmCode* code = native_module->Lookup(target);
+    if (code->kind() == WasmCode::kJumpTable) {
       uint32_t func_index =
           native_module->GetFunctionIndexFromJumpTableSlot(target);
 
@@ -3779,7 +3811,6 @@ class ThreadImpl {
 
       return native_module->GetCode(func_index);
     }
-    WasmCode* code = native_module->Lookup(target);
     DCHECK_EQ(code->instruction_start(), target);
     return code;
   }
@@ -4003,20 +4034,19 @@ uint32_t WasmInterpreter::Thread::ActivationFrameBase(uint32_t id) {
 //============================================================================
 // The implementation details of the interpreter.
 //============================================================================
-class WasmInterpreterInternals : public ZoneObject {
+class WasmInterpreterInternals {
  public:
   // Create a copy of the module bytes for the interpreter, since the passed
   // pointer might be invalidated after constructing the interpreter.
   const ZoneVector<uint8_t> module_bytes_;
   CodeMap codemap_;
-  ZoneVector<ThreadImpl> threads_;
+  std::vector<ThreadImpl> threads_;
 
   WasmInterpreterInternals(Zone* zone, const WasmModule* module,
                            const ModuleWireBytes& wire_bytes,
                            Handle<WasmInstanceObject> instance_object)
       : module_bytes_(wire_bytes.start(), wire_bytes.end(), zone),
-        codemap_(module, module_bytes_.data(), zone),
-        threads_(zone) {
+        codemap_(module, module_bytes_.data(), zone) {
     Isolate* isolate = instance_object->GetIsolate();
     Handle<Cell> reference_stack = isolate->global_handles()->Create(
         *isolate->factory()->NewCell(isolate->factory()->empty_fixed_array()));
@@ -4054,10 +4084,12 @@ WasmInterpreter::WasmInterpreter(Isolate* isolate, const WasmModule* module,
                                  const ModuleWireBytes& wire_bytes,
                                  Handle<WasmInstanceObject> instance_object)
     : zone_(isolate->allocator(), ZONE_NAME),
-      internals_(new (&zone_) WasmInterpreterInternals(
+      internals_(new WasmInterpreterInternals(
           &zone_, module, wire_bytes, MakeWeak(isolate, instance_object))) {}
 
-WasmInterpreter::~WasmInterpreter() { internals_->~WasmInterpreterInternals(); }
+// The destructor is here so we can forward declare {WasmInterpreterInternals}
+// used in the {unique_ptr} in the header.
+WasmInterpreter::~WasmInterpreter() {}
 
 void WasmInterpreter::Run() { internals_->threads_[0].Run(); }
 

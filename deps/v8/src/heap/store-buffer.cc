@@ -8,7 +8,6 @@
 
 #include "src/base/bits.h"
 #include "src/base/macros.h"
-#include "src/base/template-utils.h"
 #include "src/execution/isolate.h"
 #include "src/heap/incremental-marking.h"
 #include "src/heap/store-buffer-inl.h"
@@ -28,7 +27,6 @@ StoreBuffer::StoreBuffer(Heap* heap)
   }
   task_running_ = false;
   insertion_callback = &InsertDuringRuntime;
-  deletion_callback = &DeleteDuringRuntime;
 }
 
 void StoreBuffer::SetUp() {
@@ -91,20 +89,9 @@ void StoreBuffer::TearDown() {
   }
 }
 
-void StoreBuffer::DeleteDuringRuntime(StoreBuffer* store_buffer, Address start,
-                                      Address end) {
-  DCHECK(store_buffer->mode() == StoreBuffer::NOT_IN_GC);
-  store_buffer->InsertDeletionIntoStoreBuffer(start, end);
-}
-
 void StoreBuffer::InsertDuringRuntime(StoreBuffer* store_buffer, Address slot) {
   DCHECK(store_buffer->mode() == StoreBuffer::NOT_IN_GC);
   store_buffer->InsertIntoStoreBuffer(slot);
-}
-
-void StoreBuffer::DeleteDuringGarbageCollection(StoreBuffer* store_buffer,
-                                                Address start, Address end) {
-  UNREACHABLE();
 }
 
 void StoreBuffer::InsertDuringGarbageCollection(StoreBuffer* store_buffer,
@@ -117,10 +104,8 @@ void StoreBuffer::SetMode(StoreBufferMode mode) {
   mode_ = mode;
   if (mode == NOT_IN_GC) {
     insertion_callback = &InsertDuringRuntime;
-    deletion_callback = &DeleteDuringRuntime;
   } else {
     insertion_callback = &InsertDuringGarbageCollection;
-    deletion_callback = &DeleteDuringGarbageCollection;
   }
 }
 
@@ -142,7 +127,7 @@ void StoreBuffer::FlipStoreBuffers() {
   if (!task_running_ && FLAG_concurrent_store_buffer) {
     task_running_ = true;
     V8::GetCurrentPlatform()->CallOnWorkerThread(
-        base::make_unique<Task>(heap_->isolate(), this));
+        std::make_unique<Task>(heap_->isolate(), this));
   }
 }
 
@@ -160,24 +145,9 @@ void StoreBuffer::MoveEntriesToRememberedSet(int index) {
         MemoryChunk::BaseAddress(addr) != chunk->address()) {
       chunk = MemoryChunk::FromAnyPointerAddress(addr);
     }
-    if (IsDeletionAddress(addr)) {
-      last_inserted_addr = kNullAddress;
-      current++;
-      Address end = *current;
-      DCHECK(!IsDeletionAddress(end));
-      addr = UnmarkDeletionAddress(addr);
-      if (end) {
-        RememberedSet<OLD_TO_NEW>::RemoveRange(chunk, addr, end,
-                                               SlotSet::PREFREE_EMPTY_BUCKETS);
-      } else {
-        RememberedSet<OLD_TO_NEW>::Remove(chunk, addr);
-      }
-    } else {
-      DCHECK(!IsDeletionAddress(addr));
-      if (addr != last_inserted_addr) {
-        RememberedSet<OLD_TO_NEW>::Insert(chunk, addr);
-        last_inserted_addr = addr;
-      }
+    if (addr != last_inserted_addr) {
+      RememberedSet<OLD_TO_NEW>::Insert(chunk, addr);
+      last_inserted_addr = addr;
     }
   }
   lazy_top_[index] = nullptr;

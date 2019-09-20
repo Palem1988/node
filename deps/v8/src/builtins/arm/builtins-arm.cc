@@ -90,12 +90,24 @@ static void GenerateTailCallToReturnedCode(MacroAssembler* masm,
 
 namespace {
 
+void LoadRealStackLimit(MacroAssembler* masm, Register destination) {
+  DCHECK(masm->root_array_available());
+  Isolate* isolate = masm->isolate();
+  ExternalReference limit = ExternalReference::address_of_real_jslimit(isolate);
+  DCHECK(TurboAssembler::IsAddressableThroughRootRegister(isolate, limit));
+
+  intptr_t offset =
+      TurboAssembler::RootRegisterOffsetForExternalReference(isolate, limit);
+  CHECK(is_int32(offset));
+  __ ldr(destination, MemOperand(kRootRegister, offset));
+}
+
 void Generate_StackOverflowCheck(MacroAssembler* masm, Register num_args,
                                  Register scratch, Label* stack_overflow) {
   // Check the stack for overflow. We are not trying to catch
   // interruptions (e.g. debug break and preemption) here, so the "real stack
   // limit" is checked.
-  __ LoadRoot(scratch, RootIndex::kRealStackLimit);
+  LoadRealStackLimit(masm, scratch);
   // Make scratch the space we have left. The stack might already be overflowed
   // here which will cause scratch to become negative.
   __ sub(scratch, sp, scratch);
@@ -428,7 +440,8 @@ void Builtins::Generate_ResumeGeneratorTrampoline(MacroAssembler* masm) {
   // Check the stack for overflow. We are not trying to catch interruptions
   // (i.e. debug break and preemption) here, so check the "real stack limit".
   Label stack_overflow;
-  __ CompareRoot(sp, RootIndex::kRealStackLimit);
+  LoadRealStackLimit(masm, scratch);
+  __ cmp(sp, scratch);
   __ b(lo, &stack_overflow);
 
   // Push receiver.
@@ -1116,7 +1129,7 @@ void Builtins::Generate_InterpreterEntryTrampoline(MacroAssembler* masm) {
     // Do a stack check to ensure we don't go over the limit.
     Label ok;
     __ sub(r9, sp, Operand(r4));
-    __ LoadRoot(r2, RootIndex::kRealStackLimit);
+    LoadRealStackLimit(masm, r2);
     __ cmp(r9, Operand(r2));
     __ b(hs, &ok);
     __ CallRuntime(Runtime::kThrowStackOverflow);
@@ -2089,7 +2102,7 @@ void Generate_PushBoundArguments(MacroAssembler* masm) {
 
         // Compute the space we have left. The stack might already be overflowed
         // here which will cause remaining_stack_size to become negative.
-        __ LoadRoot(remaining_stack_size, RootIndex::kRealStackLimit);
+        LoadRealStackLimit(masm, remaining_stack_size);
         __ sub(remaining_stack_size, sp, remaining_stack_size);
 
         // Check if the arguments will overflow the stack.
@@ -2517,7 +2530,10 @@ void Builtins::Generate_WasmCompileLazy(MacroAssembler* masm) {
     __ push(kWasmCompileLazyFuncIndexRegister);
     // Load the correct CEntry builtin from the instance object.
     __ ldr(r2, FieldMemOperand(kWasmInstanceRegister,
-                               WasmInstanceObject::kCEntryStubOffset));
+                               WasmInstanceObject::kIsolateRootOffset));
+    auto centry_id =
+        Builtins::kCEntry_Return1_DontSaveFPRegs_ArgvOnStack_NoBuiltinExit;
+    __ ldr(r2, MemOperand(r2, IsolateData::builtin_slot_offset(centry_id)));
     // Initialize the JavaScript context with 0. CEntry will use it to
     // set the current context on the isolate.
     __ Move(cp, Smi::zero());
@@ -3149,51 +3165,6 @@ void Builtins::Generate_MemCopyUint8Uint8(MacroAssembler* masm) {
   __ ldrb(temp1, MemOperand(src), ne);
   __ strb(temp1, MemOperand(dest), ne);
   __ Ret();
-}
-
-void Builtins::Generate_MemCopyUint16Uint8(MacroAssembler* masm) {
-  Register dest = r0;
-  Register src = r1;
-  Register chars = r2;
-
-  {
-    UseScratchRegisterScope temps(masm);
-
-    Register temp1 = r3;
-    Register temp2 = temps.Acquire();
-    Register temp3 = lr;
-    Register temp4 = r4;
-    Label loop;
-    Label not_two;
-
-    __ Push(lr, r4);
-    __ bic(temp2, chars, Operand(0x3));
-    __ add(temp2, dest, Operand(temp2, LSL, 1));
-
-    __ bind(&loop);
-    __ ldr(temp1, MemOperand(src, 4, PostIndex));
-    __ uxtb16(temp3, temp1);
-    __ uxtb16(temp4, temp1, 8);
-    __ pkhbt(temp1, temp3, Operand(temp4, LSL, 16));
-    __ str(temp1, MemOperand(dest));
-    __ pkhtb(temp1, temp4, Operand(temp3, ASR, 16));
-    __ str(temp1, MemOperand(dest, 4));
-    __ add(dest, dest, Operand(8));
-    __ cmp(dest, temp2);
-    __ b(&loop, ne);
-
-    __ mov(chars, Operand(chars, LSL, 31), SetCC);  // bit0 => ne, bit1 => cs
-    __ b(&not_two, cc);
-    __ ldrh(temp1, MemOperand(src, 2, PostIndex));
-    __ uxtb(temp3, temp1, 8);
-    __ mov(temp3, Operand(temp3, LSL, 16));
-    __ uxtab(temp3, temp3, temp1);
-    __ str(temp3, MemOperand(dest, 4, PostIndex));
-    __ bind(&not_two);
-    __ ldrb(temp1, MemOperand(src), ne);
-    __ strh(temp1, MemOperand(dest), ne);
-    __ Pop(pc, r4);
-  }
 }
 
 #undef __

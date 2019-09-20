@@ -19,6 +19,10 @@
   V(CompactionSpaceDivideSinglePage)                      \
   V(InvalidatedSlotsAfterTrimming)                        \
   V(InvalidatedSlotsAllInvalidatedRanges)                 \
+  V(InvalidatedSlotsCleanupEachObject)                    \
+  V(InvalidatedSlotsCleanupFull)                          \
+  V(InvalidatedSlotsCleanupRightTrim)                     \
+  V(InvalidatedSlotsCleanupOverlapRight)                  \
   V(InvalidatedSlotsEvacuationCandidate)                  \
   V(InvalidatedSlotsNoInvalidatedRanges)                  \
   V(InvalidatedSlotsResetObjectRegression)                \
@@ -38,6 +42,9 @@
   V(Promotion)                                            \
   V(Regression39128)                                      \
   V(ResetWeakHandle)                                      \
+  V(StoreBuffer_CreateFromOldToYoung)                     \
+  V(StoreBuffer_Overflow)                                 \
+  V(StoreBuffer_NotUsedOnAgingObjectWithRefsToYounger)    \
   V(StressHandles)                                        \
   V(TestMemoryReducerSampleJsCalls)                       \
   V(TestSizeOfObjects)                                    \

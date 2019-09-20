@@ -93,10 +93,10 @@ bool FrameInspector::ParameterIsShadowedByContextLocal(
   VariableMode mode;
   InitializationFlag init_flag;
   MaybeAssignedFlag maybe_assigned_flag;
-  RequiresBrandCheckFlag requires_brand_check;
+  IsStaticFlag is_static_flag;
   return ScopeInfo::ContextSlotIndex(*info, *parameter_name, &mode, &init_flag,
                                      &maybe_assigned_flag,
-                                     &requires_brand_check) != -1;
+                                     &is_static_flag) != -1;
 }
 
 RedirectActiveFunctions::RedirectActiveFunctions(SharedFunctionInfo shared,

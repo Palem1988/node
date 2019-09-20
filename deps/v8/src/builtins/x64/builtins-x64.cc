@@ -5,7 +5,7 @@
 #if V8_TARGET_ARCH_X64
 
 #include "src/api/api-arguments.h"
-#include "src/base/adapters.h"
+#include "src/base/iterator.h"
 #include "src/codegen/code-factory.h"
 #include "src/deoptimizer/deoptimizer.h"
 #include "src/execution/frame-constants.h"
@@ -64,6 +64,18 @@ static void GenerateTailCallToReturnedCode(MacroAssembler* masm,
 
 namespace {
 
+Operand RealStackLimitAsOperand(MacroAssembler* masm) {
+  DCHECK(masm->root_array_available());
+  Isolate* isolate = masm->isolate();
+  ExternalReference limit = ExternalReference::address_of_real_jslimit(isolate);
+  DCHECK(TurboAssembler::IsAddressableThroughRootRegister(isolate, limit));
+
+  intptr_t offset =
+      TurboAssembler::RootRegisterOffsetForExternalReference(isolate, limit);
+  CHECK(is_int32(offset));
+  return Operand(kRootRegister, static_cast<int32_t>(offset));
+}
+
 void Generate_StackOverflowCheck(
     MacroAssembler* masm, Register num_args, Register scratch,
     Label* stack_overflow,
@@ -71,7 +83,7 @@ void Generate_StackOverflowCheck(
   // Check the stack for overflow. We are not trying to catch
   // interruptions (e.g. debug break and preemption) here, so the "real stack
   // limit" is checked.
-  __ LoadRoot(kScratchRegister, RootIndex::kRealStackLimit);
+  __ movq(kScratchRegister, RealStackLimitAsOperand(masm));
   __ movq(scratch, rsp);
   // Make scratch the space we have left. The stack might already be overflowed
   // here which will cause scratch to become negative.
@@ -389,13 +401,13 @@ void Generate_JSEntryVariant(MacroAssembler* masm, StackFrame::Type type,
     __ pushq(r13);
     __ pushq(r14);
     __ pushq(r15);
-#ifdef _WIN64
+#ifdef V8_TARGET_OS_WIN
     __ pushq(rdi);  // Only callee save in Win64 ABI, argument in AMD64 ABI.
     __ pushq(rsi);  // Only callee save in Win64 ABI, argument in AMD64 ABI.
 #endif
     __ pushq(rbx);
 
-#ifdef _WIN64
+#ifdef V8_TARGET_OS_WIN
     // On Win64 XMM6-XMM15 are callee-save.
     __ AllocateStackSpace(EntryFrameConstants::kXMMRegistersBlockSize);
     __ movdqu(Operand(rsp, EntryFrameConstants::kXMMRegisterSize * 0), xmm6);
@@ -495,7 +507,7 @@ void Generate_JSEntryVariant(MacroAssembler* masm, StackFrame::Type type,
   }
 
   // Restore callee-saved registers (X64 conventions).
-#ifdef _WIN64
+#ifdef V8_TARGET_OS_WIN
   // On Win64 XMM6-XMM15 are callee-save
   __ movdqu(xmm6, Operand(rsp, EntryFrameConstants::kXMMRegisterSize * 0));
   __ movdqu(xmm7, Operand(rsp, EntryFrameConstants::kXMMRegisterSize * 1));
@@ -511,7 +523,7 @@ void Generate_JSEntryVariant(MacroAssembler* masm, StackFrame::Type type,
 #endif
 
   __ popq(rbx);
-#ifdef _WIN64
+#ifdef V8_TARGET_OS_WIN
   // Callee save on in Win64 ABI, arguments/volatile in AMD64 ABI.
   __ popq(rsi);
   __ popq(rdi);
@@ -599,17 +611,17 @@ static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
     __ Push(rdi);
     __ Push(arg_reg_4);
 
-#ifdef _WIN64
+#ifdef V8_TARGET_OS_WIN
     // Load the previous frame pointer to access C arguments on stack
     __ movq(kScratchRegister, Operand(rbp, 0));
     // Load the number of arguments and setup pointer to the arguments.
     __ movq(rax, Operand(kScratchRegister, EntryFrameConstants::kArgcOffset));
     __ movq(rbx, Operand(kScratchRegister, EntryFrameConstants::kArgvOffset));
-#else   // _WIN64
+#else   // V8_TARGET_OS_WIN
     // Load the number of arguments and setup pointer to the arguments.
     __ movq(rax, r8);
     __ movq(rbx, r9);
-#endif  // _WIN64
+#endif  // V8_TARGET_OS_WIN
 
     // Current stack contents:
     // [rsp + 2 * kSystemPointerSize ... ] : Internal frame
@@ -735,7 +747,7 @@ void Builtins::Generate_ResumeGeneratorTrampoline(MacroAssembler* masm) {
   // Check the stack for overflow. We are not trying to catch interruptions
   // (i.e. debug break and preemption) here, so check the "real stack limit".
   Label stack_overflow;
-  __ CompareRoot(rsp, RootIndex::kRealStackLimit);
+  __ cmpq(rsp, RealStackLimitAsOperand(masm));
   __ j(below, &stack_overflow);
 
   // Pop return address.
@@ -1134,7 +1146,7 @@ void Builtins::Generate_InterpreterEntryTrampoline(MacroAssembler* masm) {
     Label ok;
     __ movq(rax, rsp);
     __ subq(rax, rcx);
-    __ CompareRoot(rax, RootIndex::kRealStackLimit);
+    __ cmpq(rax, RealStackLimitAsOperand(masm));
     __ j(above_equal, &ok, Label::kNear);
     __ CallRuntime(Runtime::kThrowStackOverflow);
     __ bind(&ok);
@@ -2339,9 +2351,10 @@ void Generate_PushBoundArguments(MacroAssembler* masm) {
       __ shlq(rbx, Immediate(kSystemPointerSizeLog2));
       __ movq(kScratchRegister, rsp);
       __ subq(kScratchRegister, rbx);
+
       // We are not trying to catch interruptions (i.e. debug break and
       // preemption) here, so check the "real stack limit".
-      __ CompareRoot(kScratchRegister, RootIndex::kRealStackLimit);
+      __ cmpq(kScratchRegister, RealStackLimitAsOperand(masm));
       __ j(above_equal, &done, Label::kNear);
       {
         FrameScope scope(masm, StackFrame::MANUAL);
@@ -2663,9 +2676,12 @@ void Builtins::Generate_WasmCompileLazy(MacroAssembler* masm) {
     // Push the function index as second argument.
     __ Push(r11);
     // Load the correct CEntry builtin from the instance object.
+    __ movq(rcx, FieldOperand(kWasmInstanceRegister,
+                              WasmInstanceObject::kIsolateRootOffset));
+    auto centry_id =
+        Builtins::kCEntry_Return1_DontSaveFPRegs_ArgvOnStack_NoBuiltinExit;
     __ LoadTaggedPointerField(
-        rcx, FieldOperand(kWasmInstanceRegister,
-                          WasmInstanceObject::kCEntryStubOffset));
+        rcx, MemOperand(rcx, IsolateData::builtin_slot_offset(centry_id)));
     // Initialize the JavaScript context with 0. CEntry will use it to
     // set the current context on the isolate.
     __ Move(kContextRegister, Smi::zero());
@@ -2700,7 +2716,7 @@ void Builtins::Generate_CEntry(MacroAssembler* masm, int result_size,
   // If argv_mode == kArgvInRegister:
   // r15: pointer to the first argument
 
-#ifdef _WIN64
+#ifdef V8_TARGET_OS_WIN
   // Windows 64-bit ABI passes arguments in rcx, rdx, r8, r9. It requires the
   // stack to be aligned to 16 bytes. It only allows a single-word to be
   // returned in register rax. Larger return sizes must be written to an address
@@ -2722,7 +2738,7 @@ void Builtins::Generate_CEntry(MacroAssembler* masm, int result_size,
   const Register kCCallArg3 = rcx;
   const int kArgExtraStackSpace = 0;
   const int kMaxRegisterResultSize = 2;
-#endif  // _WIN64
+#endif  // V8_TARGET_OS_WIN
 
   // Enter the exit frame that transitions from JavaScript to C++.
   int arg_stack_space =

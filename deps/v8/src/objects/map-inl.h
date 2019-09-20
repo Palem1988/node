@@ -507,8 +507,12 @@ bool Map::has_dictionary_elements() const {
   return IsDictionaryElementsKind(elements_kind());
 }
 
-bool Map::has_frozen_or_sealed_elements() const {
-  return IsFrozenOrSealedElementsKind(elements_kind());
+bool Map::has_any_nonextensible_elements() const {
+  return IsAnyNonextensibleElementsKind(elements_kind());
+}
+
+bool Map::has_nonextensible_elements() const {
+  return IsNonextensibleElementsKind(elements_kind());
 }
 
 bool Map::has_sealed_elements() const {
@@ -671,8 +675,10 @@ void Map::AppendDescriptor(Isolate* isolate, Descriptor* desc) {
     // barrier.
     descriptors.Append(desc);
     SetNumberOfOwnDescriptors(number_of_own_descriptors + 1);
+#ifndef V8_DISABLE_WRITE_BARRIERS
     MarkingBarrierForDescriptorArray(isolate->heap(), *this, descriptors,
                                      number_of_own_descriptors + 1);
+#endif
   }
   // Properly mark the map if the {desc} is an "interesting symbol".
   if (desc->GetKey()->IsInterestingSymbol()) {

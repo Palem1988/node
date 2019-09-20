@@ -54,7 +54,7 @@
 
 
 // -----------------------------------------------------------------------------
-// Operating system detection
+// Operating system detection (host)
 //
 //  V8_OS_ANDROID       - Android
 //  V8_OS_BSD           - BSDish (Mac OS X, Net/Free/Open/DragonFlyBSD)
@@ -122,6 +122,67 @@
 # define V8_OS_WIN 1
 #endif
 
+// -----------------------------------------------------------------------------
+// Operating system detection (target)
+//
+//  V8_TARGET_OS_ANDROID
+//  V8_TARGET_OS_FUCHSIA
+//  V8_TARGET_OS_IOS
+//  V8_TARGET_OS_LINUX
+//  V8_TARGET_OS_MACOSX
+//  V8_TARGET_OS_WIN
+//
+// If not set explicitly, these fall back to corresponding V8_OS_ values.
+
+#ifdef V8_HAVE_TARGET_OS
+
+// The target OS is provided, just check that at least one known value is set.
+# if !defined(V8_TARGET_OS_ANDROID) \
+  && !defined(V8_TARGET_OS_FUCHSIA) \
+  && !defined(V8_TARGET_OS_IOS) \
+  && !defined(V8_TARGET_OS_LINUX) \
+  && !defined(V8_TARGET_OS_MACOSX) \
+  && !defined(V8_TARGET_OS_WIN)
+#  error No known target OS defined.
+# endif
+
+#else  // V8_HAVE_TARGET_OS
+
+# if defined(V8_TARGET_OS_ANDROID) \
+  || defined(V8_TARGET_OS_FUCHSIA) \
+  || defined(V8_TARGET_OS_IOS) \
+  || defined(V8_TARGET_OS_LINUX) \
+  || defined(V8_TARGET_OS_MACOSX) \
+  || defined(V8_TARGET_OS_WIN)
+#  error A target OS is defined but V8_HAVE_TARGET_OS is unset.
+# endif
+
+// Fall back to the detected host OS.
+#ifdef V8_OS_ANDROID
+# define V8_TARGET_OS_ANDROID
+#endif
+
+#ifdef V8_OS_FUCHSIA
+# define V8_TARGET_OS_FUCHSIA
+#endif
+
+#ifdef V8_OS_IOS
+# define V8_TARGET_OS_IOS
+#endif
+
+#ifdef V8_OS_LINUX
+# define V8_TARGET_OS_LINUX
+#endif
+
+#ifdef V8_OS_MACOSX
+# define V8_TARGET_OS_MACOSX
+#endif
+
+#ifdef V8_OS_WIN
+# define V8_TARGET_OS_WIN
+#endif
+
+#endif  // V8_HAVE_TARGET_OS
 
 // -----------------------------------------------------------------------------
 // C library detection
@@ -170,6 +231,7 @@
 //  V8_HAS_ATTRIBUTE_ALWAYS_INLINE      - __attribute__((always_inline))
 //                                        supported
 //  V8_HAS_ATTRIBUTE_DEPRECATED         - __attribute__((deprecated)) supported
+//  V8_HAS_ATTRIBUTE_NONNULL            - __attribute__((nonnull)) supported
 //  V8_HAS_ATTRIBUTE_NOINLINE           - __attribute__((noinline)) supported
 //  V8_HAS_ATTRIBUTE_UNUSED             - __attribute__((unused)) supported
 //  V8_HAS_ATTRIBUTE_VISIBILITY         - __attribute__((visibility)) supported
@@ -186,6 +248,8 @@
 //  V8_HAS_BUILTIN_SADD_OVERFLOW        - __builtin_sadd_overflow() supported
 //  V8_HAS_BUILTIN_SSUB_OVERFLOW        - __builtin_ssub_overflow() supported
 //  V8_HAS_BUILTIN_UADD_OVERFLOW        - __builtin_uadd_overflow() supported
+//  V8_HAS_COMPUTED_GOTO                - computed goto/labels as values
+//                                        supported
 //  V8_HAS_DECLSPEC_DEPRECATED          - __declspec(deprecated) supported
 //  V8_HAS_DECLSPEC_NOINLINE            - __declspec(noinline) supported
 //  V8_HAS_DECLSPEC_SELECTANY           - __declspec(selectany) supported
@@ -208,12 +272,14 @@
 # define V8_HAS_ATTRIBUTE_DEPRECATED (__has_attribute(deprecated))
 # define V8_HAS_ATTRIBUTE_DEPRECATED_MESSAGE \
     (__has_extension(attribute_deprecated_with_message))
+# define V8_HAS_ATTRIBUTE_NONNULL (__has_attribute(nonnull))
 # define V8_HAS_ATTRIBUTE_NOINLINE (__has_attribute(noinline))
 # define V8_HAS_ATTRIBUTE_UNUSED (__has_attribute(unused))
 # define V8_HAS_ATTRIBUTE_VISIBILITY (__has_attribute(visibility))
 # define V8_HAS_ATTRIBUTE_WARN_UNUSED_RESULT \
     (__has_attribute(warn_unused_result))
 
+# define V8_HAS_BUILTIN_ASSUME_ALIGNED (__has_builtin(__builtin_assume_aligned))
 # define V8_HAS_BUILTIN_BSWAP16 (__has_builtin(__builtin_bswap16))
 # define V8_HAS_BUILTIN_BSWAP32 (__has_builtin(__builtin_bswap32))
 # define V8_HAS_BUILTIN_BSWAP64 (__has_builtin(__builtin_bswap64))
@@ -225,6 +291,10 @@
 # define V8_HAS_BUILTIN_SADD_OVERFLOW (__has_builtin(__builtin_sadd_overflow))
 # define V8_HAS_BUILTIN_SSUB_OVERFLOW (__has_builtin(__builtin_ssub_overflow))
 # define V8_HAS_BUILTIN_UADD_OVERFLOW (__has_builtin(__builtin_uadd_overflow))
+
+// Clang has no __has_feature for computed gotos.
+// GCC doc: https://gcc.gnu.org/onlinedocs/gcc/Labels-as-Values.html
+# define V8_HAS_COMPUTED_GOTO 1
 
 # if __cplusplus >= 201402L
 #  define V8_CAN_HAVE_DCHECK_IN_CONSTEXPR 1
@@ -256,11 +326,15 @@
 # define V8_HAS_ATTRIBUTE_WARN_UNUSED_RESULT \
     (!V8_CC_INTEL && V8_GNUC_PREREQ(4, 1, 0))
 
+# define V8_HAS_BUILTIN_ASSUME_ALIGNED (V8_GNUC_PREREQ(4, 7, 0))
 # define V8_HAS_BUILTIN_CLZ (V8_GNUC_PREREQ(3, 4, 0))
 # define V8_HAS_BUILTIN_CTZ (V8_GNUC_PREREQ(3, 4, 0))
 # define V8_HAS_BUILTIN_EXPECT (V8_GNUC_PREREQ(2, 96, 0))
 # define V8_HAS_BUILTIN_FRAME_ADDRESS (V8_GNUC_PREREQ(2, 96, 0))
 # define V8_HAS_BUILTIN_POPCOUNT (V8_GNUC_PREREQ(3, 4, 0))
+
+// GCC doc: https://gcc.gnu.org/onlinedocs/gcc/Labels-as-Values.html
+#define V8_HAS_COMPUTED_GOTO (V8_GNUC_PREREQ(2, 0, 0))
 
 #endif
 
@@ -289,6 +363,23 @@
 # define V8_INLINE __forceinline
 #else
 # define V8_INLINE inline
+#endif
+
+#if V8_HAS_BUILTIN_ASSUME_ALIGNED
+# define V8_ASSUME_ALIGNED(ptr, alignment) \
+  __builtin_assume_aligned((ptr), (alignment))
+#else
+# define V8_ASSUME_ALIGNED(ptr) (ptr)
+#endif
+
+
+// A macro to mark specific arguments as non-null.
+// Use like:
+//   int add(int* x, int y, int* z) V8_NONNULL(1, 3) { return *x + y + *z; }
+#if V8_HAS_ATTRIBUTE_NONNULL
+# define V8_NONNULL(...) __attribute__((nonnull(__VA_ARGS__)))
+#else
+# define V8_NONNULL(...) /* NOT SUPPORTED */
 #endif
 
 

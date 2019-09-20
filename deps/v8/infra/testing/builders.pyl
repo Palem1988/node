@@ -98,14 +98,6 @@
       {'name': 'v8testing', 'variant': 'extra'},
     ],
   },
-  'v8_linux_noembed_rel_ng_triggered': {
-    'swarming_dimensions' : {
-      'os': 'Ubuntu-16.04',
-    },
-    'tests': [
-      {'name': 'v8testing', 'shards': 2},
-    ],
-  },
   'v8_linux_noi18n_rel_ng_triggered': {
     'swarming_dimensions' : {
       'os': 'Ubuntu-16.04',
@@ -227,7 +219,7 @@
       {'name': 'mozilla'},
       {'name': 'test262'},
       {'name': 'v8testing', 'shards': 7},
-      {'name': 'v8testing', 'variant': 'extra', 'shards': 3},
+      {'name': 'v8testing', 'variant': 'extra', 'shards': 6},
       {'name': 'v8testing', 'variant': 'trusted', 'shards': 2},
     ],
   },
@@ -483,13 +475,8 @@
     'swarming_dimensions' : {
       'os': 'Ubuntu-16.04',
     },
-    'swarming_task_attrs': {
-      'expiration': 14400,
-      'hard_timeout': 3600,
-      'priority': 35,
-    },
     'tests': [
-      {'name': 'v8testing', 'shards': 7},
+      {'name': 'v8testing', 'shards': 12},
     ],
   },
   ##############################################################################
@@ -546,7 +533,7 @@
   # Win64
   'v8_win64_asan_rel_ng_triggered': {
     'swarming_dimensions' : {
-      'os': 'Windows-10',
+      'os': 'Windows-10-15063',
     },
     'tests': [
       {'name': 'v8testing', 'shards': 5},
@@ -762,22 +749,6 @@
       },
     ],
   },
-  'V8 Linux - noembed': {
-    'swarming_dimensions': {
-      'os': 'Ubuntu-16.04',
-    },
-    'tests': [
-      {'name': 'v8testing'},
-    ],
-  },
-  'V8 Linux - noembed - debug': {
-    'swarming_dimensions': {
-      'os': 'Ubuntu-16.04',
-    },
-    'tests': [
-      {'name': 'v8testing', 'shards': 3},
-    ],
-  },
   'V8 Linux - full debug': {
     'swarming_dimensions': {
       'os': 'Ubuntu-16.04',
@@ -830,7 +801,7 @@
     },
     'tests': [
       {'name': 'mozilla', 'variant': 'default'},
-      {'name': 'test262', 'variant': 'default', 'shards': 4},
+      {'name': 'test262', 'variant': 'default', 'shards': 6},
       {'name': 'v8testing', 'variant': 'default', 'shards': 3},
     ],
   },
@@ -1253,7 +1224,7 @@
   },
   'V8 Win64 ASAN': {
     'swarming_dimensions': {
-      'os': 'Windows-10',
+      'os': 'Windows-10-15063',
     },
     'tests': [
       {'name': 'v8testing', 'shards': 5},
@@ -1395,24 +1366,24 @@
       'os': 'Ubuntu-16.04',
     },
     'tests': [
-      {'name': 'mjsunit_sp_frame_access'},
-      {'name': 'mozilla'},
+      {'name': 'mjsunit_sp_frame_access', 'shards': 4},
+      {'name': 'mozilla', 'shards': 4},
       {'name': 'test262'},
       {'name': 'v8testing', 'shards': 8},
-      {'name': 'v8testing', 'variant': 'extra', 'shards': 4},
+      {'name': 'v8testing', 'variant': 'extra', 'shards': 6},
       {'name': 'v8testing', 'variant': 'trusted', 'shards': 2},
       # Armv8-a.
       {
         'name': 'mozilla',
         'suffix': 'armv8-a',
         'test_args': ['--extra-flags', '--enable-armv8'],
-        'shards': 2,
+        'shards': 3,
       },
       {
         'name': 'test262',
         'suffix': 'armv8-a',
         'test_args': ['--extra-flags', '--enable-armv8'],
-        'shards': 2,
+        'shards': 3,
       },
       {
         'name': 'v8testing',
@@ -1570,19 +1541,6 @@
     },
     'tests': [
       {'name': 'v8testing', 'shards': 7},
-    ],
-  },
-  'V8 Mips - big endian - nosnap': {
-    'swarming_dimensions': {
-      'cpu': 'mips-32',
-      'os': 'Debian-8.7',
-    },
-    'swarming_task_attrs': {
-      'expiration': 18000,
-      'hard_timeout': 18000,
-    },
-    'tests': [
-      {'name': 'v8testing', 'variant': 'default', 'shards': 2},
     ],
   },
   ##############################################################################

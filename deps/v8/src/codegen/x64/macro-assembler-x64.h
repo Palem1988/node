@@ -344,6 +344,7 @@ class V8_EXPORT_PRIVATE TurboAssembler : public TurboAssemblerBase {
 
   Operand EntryFromBuiltinIndexAsOperand(Register builtin_index);
   void CallBuiltinByIndex(Register builtin_index) override;
+  void CallBuiltin(int builtin_index);
 
   void LoadCodeObjectEntry(Register destination, Register code_object) override;
   void CallCodeObject(Register code_object) override;
@@ -353,7 +354,7 @@ class V8_EXPORT_PRIVATE TurboAssembler : public TurboAssemblerBase {
   void RetpolineCall(Address destination, RelocInfo::Mode rmode);
 
   void Jump(Address destination, RelocInfo::Mode rmode);
-  void Jump(ExternalReference ext);
+  void Jump(const ExternalReference& reference) override;
   void Jump(Operand op);
   void Jump(Handle<Code> code_object, RelocInfo::Mode rmode,
             Condition cc = always);
@@ -413,7 +414,7 @@ class V8_EXPORT_PRIVATE TurboAssembler : public TurboAssemblerBase {
 // stack check, do it before calling this function because this function may
 // write into the newly allocated space. It may also overwrite the given
 // register's value, in the version that takes a register.
-#ifdef V8_OS_WIN
+#ifdef V8_TARGET_OS_WIN
   void AllocateStackSpace(Register bytes_scratch);
   void AllocateStackSpace(int bytes);
 #else
@@ -916,7 +917,7 @@ inline Operand NativeContextOperand() {
 
 // Provides access to exit frame stack space (not GCed).
 inline Operand StackSpaceOperand(int index) {
-#ifdef _WIN64
+#ifdef V8_TARGET_OS_WIN
   const int kShaddowSpace = 4;
   return Operand(rsp, (index + kShaddowSpace) * kSystemPointerSize);
 #else

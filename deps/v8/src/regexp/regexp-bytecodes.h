@@ -5,15 +5,24 @@
 #ifndef V8_REGEXP_REGEXP_BYTECODES_H_
 #define V8_REGEXP_REGEXP_BYTECODES_H_
 
+#include "src/base/macros.h"
+
 namespace v8 {
 namespace internal {
 
-const int BYTECODE_MASK = 0xff;
+// Maximum number of bytecodes that will be used (next power of 2 of actually
+// defined bytecodes).
+// All slots between the last actually defined bytecode and maximum id will be
+// filled with BREAKs, indicating an invalid operation. This way using
+// BYTECODE_MASK guarantees no OOB access to the dispatch table.
+constexpr int kRegExpPaddedBytecodeCount = 1 << 6;
+constexpr int BYTECODE_MASK = kRegExpPaddedBytecodeCount - 1;
 // The first argument is packed in with the byte code in one word, but so it
 // has 24 bits, but it can be positive and negative so only use 23 bits for
 // positive values.
 const unsigned int MAX_FIRST_ARG = 0x7fffffu;
 const int BYTECODE_SHIFT = 8;
+STATIC_ASSERT(1 << BYTECODE_SHIFT > BYTECODE_MASK);
 
 #define BYTECODE_ITERATOR(V)                                                   \
   V(BREAK, 0, 4)              /* bc8                                        */ \
@@ -67,16 +76,43 @@ const int BYTECODE_SHIFT = 8;
   V(CHECK_NOT_AT_START, 48, 8) /* bc8 offset24 addr32 */                       \
   V(CHECK_GREEDY, 49, 8) /* bc8 pad24 addr32                           */      \
   V(ADVANCE_CP_AND_GOTO, 50, 8)           /* bc8 offset24 addr32 */            \
-  V(SET_CURRENT_POSITION_FROM_END, 51, 4) /* bc8 idx24 */
+  V(SET_CURRENT_POSITION_FROM_END, 51, 4) /* bc8 idx24 */                      \
+  V(CHECK_CURRENT_POSITION, 52, 8)        /* bc8 idx24 addr32 */
 
-#define DECLARE_BYTECODES(name, code, length) static const int BC_##name = code;
+#define COUNT(...) +1
+static constexpr int kRegExpBytecodeCount = BYTECODE_ITERATOR(COUNT);
+#undef COUNT
+
+// Just making sure we assigned values above properly. They should be
+// contiguous, strictly increasing, and start at 0.
+// TODO(jgruber): Do not explicitly assign values, instead generate them
+// implicitly from the list order.
+STATIC_ASSERT(kRegExpBytecodeCount == 53);
+
+#define DECLARE_BYTECODES(name, code, length) \
+  static constexpr int BC_##name = code;
 BYTECODE_ITERATOR(DECLARE_BYTECODES)
 #undef DECLARE_BYTECODES
 
-#define DECLARE_BYTECODE_LENGTH(name, code, length) \
-  static const int BC_##name##_LENGTH = length;
-BYTECODE_ITERATOR(DECLARE_BYTECODE_LENGTH)
+static constexpr int kRegExpBytecodeLengths[] = {
+#define DECLARE_BYTECODE_LENGTH(name, code, length) length,
+    BYTECODE_ITERATOR(DECLARE_BYTECODE_LENGTH)
 #undef DECLARE_BYTECODE_LENGTH
+};
+
+inline constexpr int RegExpBytecodeLength(int bytecode) {
+  return kRegExpBytecodeLengths[bytecode];
+}
+
+static const char* const kRegExpBytecodeNames[] = {
+#define DECLARE_BYTECODE_NAME(name, ...) #name,
+    BYTECODE_ITERATOR(DECLARE_BYTECODE_NAME)
+#undef DECLARE_BYTECODE_NAME
+};
+
+inline const char* RegExpBytecodeName(int bytecode) {
+  return kRegExpBytecodeNames[bytecode];
+}
 
 }  // namespace internal
 }  // namespace v8

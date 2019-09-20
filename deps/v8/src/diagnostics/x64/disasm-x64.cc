@@ -1845,14 +1845,30 @@ int DisassemblerX64::TwoByteOpcodeInstruction(byte* data) {
         current += 1;
       } else {
         const char* mnemonic;
-        if (opcode == 0x54) {
+        if (opcode == 0x51) {
+          mnemonic = "sqrtpd";
+        } else if (opcode == 0x54) {
           mnemonic = "andpd";
+        } else if (opcode == 0x55) {
+          mnemonic = "andnpd";
         } else if (opcode == 0x56) {
           mnemonic = "orpd";
         } else if (opcode == 0x57) {
           mnemonic = "xorpd";
+        } else if (opcode == 0x58) {
+          mnemonic = "addpd";
+        } else if (opcode == 0x59) {
+          mnemonic = "mulpd";
         } else if (opcode == 0x5B) {
           mnemonic = "cvtps2dq";
+        } else if (opcode == 0x5C) {
+          mnemonic = "subpd";
+        } else if (opcode == 0x5D) {
+          mnemonic = "minpd";
+        } else if (opcode == 0x5E) {
+          mnemonic = "divpd";
+        } else if (opcode == 0x5F) {
+          mnemonic = "maxpd";
         } else if (opcode == 0x60) {
           mnemonic = "punpcklbw";
         } else if (opcode == 0x61) {
@@ -1894,6 +1910,8 @@ int DisassemblerX64::TwoByteOpcodeInstruction(byte* data) {
         } else if (opcode == 0xD1) {
           mnemonic = "psrlw";
         } else if (opcode == 0xD2) {
+          mnemonic = "psrld";
+        } else if (opcode == 0xD3) {
           mnemonic = "psrld";
         } else if (opcode == 0xD4) {
           mnemonic = "paddq";
@@ -1939,6 +1957,8 @@ int DisassemblerX64::TwoByteOpcodeInstruction(byte* data) {
           mnemonic = "psllw";
         } else if (opcode == 0xF2) {
           mnemonic = "pslld";
+        } else if (opcode == 0xF3) {
+          mnemonic = "psllq";
         } else if (opcode == 0xF4) {
           mnemonic = "pmuludq";
         } else if (opcode == 0xF8) {
@@ -1985,6 +2005,11 @@ int DisassemblerX64::TwoByteOpcodeInstruction(byte* data) {
         AppendToBuffer("%s,", NameOfXMMRegister(regop));
         current += PrintRightXMMOperand(current);
       }
+    } else if (opcode == 0x12) {
+      int mod, regop, rm;
+      get_modrm(*current, &mod, &regop, &rm);
+      AppendToBuffer("movddup %s,", NameOfXMMRegister(regop));
+      current += PrintRightXMMOperand(current);
     } else if (opcode == 0x2A) {
       // CVTSI2SD: integer to XMM double conversion.
       int mod, regop, rm;

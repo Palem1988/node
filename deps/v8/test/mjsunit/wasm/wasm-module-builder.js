@@ -84,6 +84,7 @@ let kSharedHasMaximumFlag = 3;
 let kActiveNoIndex = 0;
 let kPassive = 1;
 let kActiveWithIndex = 2;
+let kPassiveWithElements = 5;
 
 // Function declaration flags
 let kDeclFunctionName   = 0x01;
@@ -552,7 +553,7 @@ class Binary {
     this.buffer[this.length++] = val >> 24;
   }
 
-  emit_leb(val, max_len) {
+  emit_leb_u(val, max_len) {
     this.ensure_space(max_len);
     for (let i = 0; i < max_len; ++i) {
       let v = val & 0xff;
@@ -567,11 +568,11 @@ class Binary {
   }
 
   emit_u32v(val) {
-    this.emit_leb(val, kMaxVarInt32Size);
+    this.emit_leb_u(val, kMaxVarInt32Size);
   }
 
   emit_u64v(val) {
-    this.emit_leb(val, kMaxVarInt64Size);
+    this.emit_leb_u(val, kMaxVarInt64Size);
   }
 
   emit_bytes(data) {
@@ -1164,13 +1165,16 @@ class WasmModuleBuilder {
             }
             section.emit_u32v(init.base);
             section.emit_u8(kExprEnd);
+            if (init.table != 0) {
+              section.emit_u8(kExternalFunction);
+            }
             section.emit_u32v(init.array.length);
             for (let index of init.array) {
               section.emit_u32v(index);
             }
           } else {
             // Passive segment.
-            section.emit_u8(kPassive);  // flags
+            section.emit_u8(kPassiveWithElements);  // flags
             section.emit_u8(kWasmAnyFunc);
             section.emit_u32v(init.array.length);
             for (let index of init.array) {
@@ -1384,13 +1388,24 @@ class WasmModuleBuilder {
   }
 }
 
-function wasmI32Const(val) {
-  let bytes = [kExprI32Const];
-  for (let i = 0; i < 4; ++i) {
-    bytes.push(0x80 | ((val >> (7 * i)) & 0x7f));
+function wasmSignedLeb(val, max_len = 5) {
+  let res = [];
+  for (let i = 0; i < max_len; ++i) {
+    let v = val & 0x7f;
+    // If {v} sign-extended from 7 to 32 bits is equal to val, we are done.
+    if (((v << 25) >> 25) == val) {
+      res.push(v);
+      return res;
+    }
+    res.push(v | 0x80);
+    val = val >> 7;
   }
-  bytes.push((val >> (7 * 4)) & 0x7f);
-  return bytes;
+  throw new Error(
+      'Leb value <' + val + '> exceeds maximum length of ' + max_len);
+}
+
+function wasmI32Const(val) {
+  return [kExprI32Const, ...wasmSignedLeb(val, 5)];
 }
 
 function wasmF32Const(f) {

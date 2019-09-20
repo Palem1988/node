@@ -120,7 +120,7 @@ class FixedArray : public FixedArrayBase {
   // Return a grown copy if the index is bigger than the array's length.
   V8_EXPORT_PRIVATE static Handle<FixedArray> SetAndGrow(
       Isolate* isolate, Handle<FixedArray> array, int index,
-      Handle<Object> value, AllocationType allocation = AllocationType::kYoung);
+      Handle<Object> value);
 
   // Setter that uses write barrier.
   inline void set(int index, Object value);
@@ -247,7 +247,10 @@ class FixedDoubleArray : public FixedArrayBase {
 
   DECL_CAST(FixedDoubleArray)
 
-  // Maximally allowed length of a FixedArray.
+  // Start offset of elements.
+  static constexpr int kFloatsOffset = kHeaderSize;
+
+  // Maximally allowed length of a FixedDoubleArray.
   static const int kMaxLength = (kMaxSize - kHeaderSize) / kDoubleSize;
   static_assert(Internals::IsValidSmi(kMaxLength),
                 "FixedDoubleArray maxLength not a Smi");

@@ -33,6 +33,7 @@ constexpr size_t kMaxPCRelativeCodeRangeInMB = 128;
 constexpr uint8_t kInstrSize = 4;
 constexpr uint8_t kInstrSizeLog2 = 2;
 constexpr uint8_t kLoadLiteralScaleLog2 = 2;
+constexpr uint8_t kLoadLiteralScale = 1 << kLoadLiteralScaleLog2;
 constexpr int kMaxLoadLiteralRange = 1 * MB;
 
 const int kNumberOfRegisters = 32;
@@ -129,6 +130,8 @@ const uint64_t kAddressTagMask = ((UINT64_C(1) << kAddressTagWidth) - 1)
                                  << kAddressTagOffset;
 static_assert(kAddressTagMask == UINT64_C(0xff00000000000000),
               "AddressTagMask must represent most-significant eight bits.");
+
+const uint64_t kTTBRMask = UINT64_C(1) << 55;
 
 // AArch64 floating-point specifics. These match IEEE-754.
 const unsigned kDoubleMantissaBits = 52;
@@ -758,6 +761,16 @@ enum MemBarrierOp : uint32_t {
   DSB = MemBarrierFixed | 0x00000000,
   DMB = MemBarrierFixed | 0x00000020,
   ISB = MemBarrierFixed | 0x00000040
+};
+
+enum SystemPAuthOp : uint32_t {
+  SystemPAuthFixed = 0xD503211F,
+  SystemPAuthFMask = 0xFFFFFD1F,
+  SystemPAuthMask = 0xFFFFFFFF,
+  PACIA1716 = SystemPAuthFixed | 0x00000100,
+  AUTIA1716 = SystemPAuthFixed | 0x00000180,
+  PACIASP = SystemPAuthFixed | 0x00000320,
+  AUTIASP = SystemPAuthFixed | 0x000003A0
 };
 
 // Any load or store (including pair).
